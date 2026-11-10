@@ -1,4 +1,6 @@
+import axios from "axios";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { Platform } from "react-native";
 import { api } from "./client";
 import { IMAGEKIT_PUBLIC_KEY } from "@/lib/env";
 
@@ -30,8 +32,10 @@ export const uploadImage = async (localUri: string, folder: "Products" | "Avatar
   if (!auth?.signature || !auth?.token || !auth?.expire) throw new Error("Image service unavailable");
 
   const form = new FormData();
-  // React Native FormData accepts { uri, name, type } file parts.
-  form.append("file", { uri: compressed, name: `${Date.now()}.jpg`, type: "image/jpeg" } as unknown as Blob);
+  // Native: RN networking (XHR) streams { uri } parts. Expo's global fetch
+  // does not ("Unsupported FormDataPart implementation"), so upload via axios.
+  if (Platform.OS === "web") form.append("file", await (await fetch(compressed)).blob(), `${Date.now()}.jpg`);
+  else form.append("file", { uri: compressed, name: `${Date.now()}.jpg`, type: "image/jpeg" } as unknown as Blob);
   form.append("fileName", `${Date.now()}_unideals.jpg`);
   form.append("publicKey", IMAGEKIT_PUBLIC_KEY);
   form.append("signature", String(auth.signature));
@@ -40,17 +44,17 @@ export const uploadImage = async (localUri: string, folder: "Products" | "Avatar
   form.append("folder", String(auth.folder || folder));
   form.append("useUniqueFileName", "true");
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60000);
   try {
-    const res = await fetch(UPLOAD_URL, { method: "POST", body: form, signal: controller.signal });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json?.url || !json?.fileId) {
-      throw new Error(json?.message || "Image upload failed");
-    }
+    const { data: json } = await axios.post(UPLOAD_URL, form, {
+      timeout: 60000,
+      headers: { "Content-Type": "multipart/form-data", Accept: "application/json" },
+      transformRequest: (d) => d, // keep FormData as-is
+    });
+    if (!json?.url || !json?.fileId) throw new Error("Image upload failed");
     return { url: json.url, fileId: json.fileId };
-  } finally {
-    clearTimeout(timer);
+  } catch (err) {
+    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    throw new Error(msg || (err as Error)?.message || "Image upload failed");
   }
 };
 

@@ -7,17 +7,24 @@ import {
   useFonts,
 } from "@expo-google-fonts/figtree";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { DarkTheme, DefaultTheme, SplashScreen, Stack, ThemeProvider, router, useSegments } from "expo-router";
+import { DarkTheme, DefaultTheme, SplashScreen, Stack, ThemeProvider, router, usePathname, useSegments } from "expo-router";
+import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
+import * as SystemUI from "expo-system-ui";
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AnimatedSplash } from "@/components/brand/AnimatedSplash";
 import { Toaster } from "@/components/ui";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useCampus } from "@/hooks/useCampus";
 import { useRealtimeBridge } from "@/hooks/useRealtime";
+import { ThemeRevealHost } from "@/components/theme/ThemeReveal";
+import { PROTECTED_ROOTS } from "@/lib/authPrompt";
 import { queryClient } from "@/lib/queryClient";
+import { toast } from "@/lib/toast";
 import { canSeeGirls, useAuthStore } from "@/store/auth";
 import { usePrefsStore } from "@/store/prefs";
 import { useTheme } from "@/theme";
@@ -33,6 +40,15 @@ function Guards() {
   const segments = useSegments();
 
   useRealtimeBridge();
+
+  const pathname = usePathname();
+  useEffect(() => {
+    if (status !== "guest") return;
+    const root = String(segments[0] || "");
+    if (!PROTECTED_ROOTS.has(root)) return;
+    toast("Please log in to continue");
+    router.replace({ pathname: "/login", params: { next: pathname } });
+  }, [status, segments, pathname]);
 
   // Logged-in users without a campus must pick one before using the app
   // (same onboarding gate as the website's CampusGate).
@@ -78,6 +94,13 @@ function Shell() {
   }, [fontsReady]);
 
   const navTheme = theme.c.dark ? DarkTheme : DefaultTheme;
+  const rootBg = ready ? theme.c.bg : "#3838EC";
+
+  // Paint the native window too, so no white shows behind the transparent
+  // status/navigation bars, the keyboard, or screen transitions.
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(rootBg).catch(() => {});
+  }, [rootBg]);
 
   if (!fontsReady) return <View style={{ flex: 1, backgroundColor: "#3838EC" }} />;
 
@@ -93,6 +116,7 @@ function Shell() {
           }}
         >
           <StatusBar style={!introDone || theme.c.dark ? "light" : "dark"} />
+          {Platform.OS === "android" ? <NavigationBar style={!introDone || theme.c.dark ? "light" : "dark"} /> : null}
           <Guards />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.c.bg } }}>
             <Stack.Screen name="(tabs)" />
@@ -100,6 +124,7 @@ function Shell() {
             <Stack.Screen name="campus" options={{ gestureEnabled: false }} />
           </Stack>
           <Toaster />
+          <OfflineBanner />
         </ThemeProvider>
       ) : (
         <StatusBar style="light" />
@@ -113,9 +138,13 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <Shell />
-        </QueryClientProvider>
+        <KeyboardProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThemeRevealHost>
+              <Shell />
+            </ThemeRevealHost>
+          </QueryClientProvider>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

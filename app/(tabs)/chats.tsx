@@ -9,6 +9,7 @@ import { errorMessage } from "@/api/client";
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Segmented, Skeleton } from "@/components/ui";
 import { Icon } from "@/components/ui/Icon";
 import { useIsLoggedIn } from "@/store/auth";
+import { useTabBarSpace } from "@/hooks/useLayout";
 import { font, useTheme } from "@/theme";
 import { dealBadge, formatName, inr, timeAgo } from "@/utils/format";
 import { firstImage, ikThumb } from "@/utils/image";
@@ -19,6 +20,7 @@ type Role = "all" | "buying" | "selling";
 export default function Chats() {
   const { c } = useTheme();
   const loggedIn = useIsLoggedIn();
+  const { space } = useTabBarSpace();
   const [role, setRole] = useState<Role>("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [search, setSearch] = useState("");
@@ -56,7 +58,7 @@ export default function Chats() {
       <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: c.bg }}>
         <Text style={[styles.title, { color: c.text, paddingHorizontal: 16 }]}>Chats</Text>
         <Card style={{ margin: 16, alignItems: "center" }}>
-          <EmptyState icon="chatbubbles-outline" title="Your conversations live here" message="Log in to message sellers, make offers and close deals." compact />
+          <EmptyState icon="chatbubbles-outline" title="Your conversations live here" message="Log in to slide into sellers’ DMs (the wholesome kind), make offers and close deals." compact />
           <Button title="Log in" onPress={() => router.push("/login")} />
         </Card>
       </SafeAreaView>
@@ -125,6 +127,8 @@ export default function Chats() {
             ) : null
           }
           renderItem={({ item }) => <ConversationItem row={item} />}
+          contentContainerStyle={{ paddingBottom: space }}
+          removeClippedSubviews
           ItemSeparatorComponent={() => <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: c.border, marginLeft: 78 }} />}
           refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => void q.refetch()} tintColor={c.accent} />}
           ListEmptyComponent={

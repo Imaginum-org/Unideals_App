@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +13,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { useCampus } from "@/hooks/useCampus";
 import { useChatUnread, useNotifications } from "@/hooks/useRealtime";
 import { useWishlist } from "@/hooks/useWishlist";
+import { useTabBarSpace } from "@/hooks/useLayout";
 import { useAuthStore } from "@/store/auth";
 import { font, useTheme } from "@/theme";
 import { formatName, inr, tierLabel } from "@/utils/format";
@@ -58,9 +60,10 @@ function Stars({ value, size = 14 }: { value: number; size?: number }) {
 
 function Guest() {
   const { c } = useTheme();
+  const { space } = useTabBarSpace();
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: space }}>
         <Wordmark size={24} />
         <Card style={{ marginTop: 18, alignItems: "center", paddingVertical: 28 }}>
           <EmptyState icon="person-circle-outline" title="Your campus account" message="Log in to manage listings, orders, wishlist and plans." compact />
@@ -73,7 +76,6 @@ function Guest() {
           <Row icon="help-circle-outline" title="FAQ" onPress={() => router.push("/faq")} />
           <Row icon="life-buoy" title="Help & support" onPress={() => router.push("/contact")} />
           <Row icon="document-text-outline" title="Terms & privacy" onPress={() => router.push("/legal/terms")} />
-          <Row icon="color-palette-outline" title="Appearance" onPress={() => router.push("/settings")} />
         </Card>
         <BrandFooter style={{ paddingHorizontal: 8 }} />
       </ScrollView>
@@ -83,6 +85,7 @@ function Guest() {
 
 export default function Profile() {
   const { c } = useTheme();
+  const { space } = useTabBarSpace();
   const user = useAuthStore((s) => s.user);
   const loggedIn = useAuthStore((s) => s.status === "authed");
   const refreshProfile = useAuthStore((s) => s.refreshProfile);
@@ -148,9 +151,10 @@ export default function Profile() {
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.accent} />}>
+      <ScrollView contentContainerStyle={{ paddingBottom: space }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.accent} />}>
         {/* Profile header (flush on phone) */}
         <View style={[styles.header, { backgroundColor: c.card, borderColor: c.border }]}>
+          <LinearGradient colors={[c.accentSoftStrong, "transparent"]} style={styles.cover} pointerEvents="none" />
           <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
             <Avatar avatar={user.avatar} name={user.name} size={72} plan={user.subscription} role={user.role} showBadge />
             <View style={{ flex: 1, gap: 4 }}>
@@ -423,7 +427,8 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 16, borderBottomWidth: 1 },
+  header: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 16, borderBottomWidth: 1, overflow: "hidden" },
+  cover: { position: "absolute", left: 0, right: 0, top: 0, height: 110 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   stat: { width: "48.5%", padding: 14, gap: 1 },
   checkRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { router } from "expo-router";
+import { promptLogin } from "@/lib/authPrompt";
 import { errorMessage } from "@/api/client";
 import { wishlistApi } from "@/api/user";
 import { useIsLoggedIn } from "@/store/auth";
@@ -44,7 +44,7 @@ export const useWishlist = () => {
     isSaved: (id?: string) => (id ? ids.has(id) : false),
     toggle: (product: Product) => {
       if (!loggedIn) {
-        router.push("/login");
+        promptLogin("Log in to save items to your wishlist");
         return;
       }
       toggle.mutate({ product });

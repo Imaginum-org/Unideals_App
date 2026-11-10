@@ -22,9 +22,10 @@ type Props = {
   onDecline?: (m: Message) => void;
   onCounter?: (m: Message) => void;
   onLongPress?: (m: Message) => void;
+  onRetry?: (m: Message) => void;
 };
 
-function Bubble({ msg, meId, deal, otherName, busy, onAccept, onDecline, onCounter, onLongPress }: Props) {
+function Bubble({ msg, meId, deal, otherName, busy, onAccept, onDecline, onCounter, onLongPress, onRetry }: Props) {
   const { c, radius } = useTheme();
   const mine = idOf(msg.sender_id) === String(meId);
 
@@ -89,6 +90,7 @@ function Bubble({ msg, meId, deal, otherName, busy, onAccept, onDecline, onCount
   return (
     <View style={[styles.row, { justifyContent: mine ? "flex-end" : "flex-start" }]}>
       <Pressable
+        onPress={msg.failed ? () => onRetry?.(msg) : undefined}
         onLongPress={() => onLongPress?.(msg)}
         delayLongPress={300}
         style={[
@@ -118,6 +120,9 @@ function Bubble({ msg, meId, deal, otherName, busy, onAccept, onDecline, onCount
           <Text style={{ color: mine ? "rgba(255,255,255,0.75)" : c.textFaint, fontSize: 10.5 }}>{clockTime(msg.createdAt)}</Text>
           {mine ? <Icon name={tick} size={13} color={tickColor} /> : null}
         </View>
+        {msg.failed ? (
+          <Text style={{ color: "#FECACA", fontSize: 11.5, marginTop: 3, fontFamily: "Figtree_600SemiBold" }}>Not sent · Tap to retry</Text>
+        ) : null}
       </Pressable>
     </View>
   );

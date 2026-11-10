@@ -1,8 +1,11 @@
 import { Icon } from "@/components/ui/Icon";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Animated,
+  Easing,
   FlatList,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -66,7 +69,6 @@ export function Input({
             borderRadius: radius.md,
             backgroundColor: c.card,
             borderColor: error ? c.danger : focused ? c.accent : c.dark ? "#2A2D35" : "#E2E8F0",
-            ...(focused ? { shadowColor: c.accent, shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } } : null),
             minHeight: multiline ? 110 : 48,
             alignItems: multiline ? "flex-start" : "center",
           },
@@ -88,7 +90,7 @@ export function Input({
           }}
           style={[
             styles.input,
-            { color: c.text, textAlignVertical: multiline ? "top" : "center", paddingTop: multiline ? 12 : 0 },
+            { color: c.text, textAlignVertical: multiline ? "top" : "center", paddingTop: multiline ? 12 : 0, height: multiline ? undefined : 46 },
             style,
           ]}
           {...rest}
@@ -212,23 +214,133 @@ export function OptionSheet({
   );
 }
 
-/** Bottom sheet modal. */
-export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title?: string; children: ReactNode }) {
+/**
+ * Bottom sheet: fading scrim, spring slide-up, and it rides on top of the
+ * keyboard (works whether or not the OS resized the modal window).
+ */
+export function Sheet({
+  visible,
+  onClose,
+  title,
+  subtitle,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title?: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const [mounted, setMounted] = useState(visible);
+  const [kbOpen, setKbOpen] = useState(false);
+  const slide = useRef(new Animated.Value(1)).current; // 1 = hidden
+  const lift = useRef(new Animated.Value(0)).current;
+  const rootH = useRef(0);
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      slide.setValue(1);
+      Animated.spring(slide, { toValue: 0, useNativeDriver: true, speed: 15, bounciness: 3 }).start();
+    } else if (mounted) {
+      Keyboard.dismiss();
+      Animated.timing(slide, { toValue: 1, duration: 200, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => setMounted(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const ios = Platform.OS === "ios";
+    const show = Keyboard.addListener(ios ? "keyboardWillShow" : "keyboardDidShow", (e) => {
+      // Distance from the keyboard top to the bottom of this (full-screen) modal.
+      const overlap = rootH.current ? Math.max(0, rootH.current - e.endCoordinates.screenY) : e.endCoordinates.height;
+      setKbOpen(true);
+      Animated.timing(lift, { toValue: -overlap, duration: ios ? e.duration || 250 : 180, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    });
+    const hide = Keyboard.addListener(ios ? "keyboardWillHide" : "keyboardDidHide", (e) => {
+      setKbOpen(false);
+      Animated.timing(lift, { toValue: 0, duration: ios ? e?.duration || 220 : 160, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [mounted, lift]);
+
+  if (!mounted) return null;
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }]} onPress={onClose} />
-      <View style={[styles.sheet, { backgroundColor: c.bg, paddingBottom: insets.bottom + 16 }]}>
-        <View style={[styles.grabber, { backgroundColor: c.borderStrong }]} />
-        {title ? (
-          <T variant="h2" style={{ marginBottom: 10 }}>
-            {title}
-          </T>
-        ) : null}
-        {children}
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <View style={StyleSheet.absoluteFill} onLayout={(e) => (rootH.current = e.nativeEvent.layout.height)}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay, opacity: slide.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: c.dark ? "#16181B" : "#FFFFFF",
+              paddingBottom: kbOpen ? 16 : insets.bottom + 16,
+              transform: [{ translateY: Animated.add(slide.interpolate({ inputRange: [0, 1], outputRange: [0, 700] }), lift) }],
+            },
+          ]}
+        >
+          <View style={[styles.grabber, { backgroundColor: c.borderStrong }]} />
+          {title ? (
+            <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 14, gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <T variant="h2">{title}</T>
+                {subtitle ? (
+                  <T variant="small" muted style={{ marginTop: 2 }}>
+                    {subtitle}
+                  </T>
+                ) : null}
+              </View>
+              <Pressable onPress={onClose} hitSlop={10} style={[styles.close, { backgroundColor: c.surface }]} accessibilityLabel="Close">
+                <Icon name="close" size={16} color={c.textMuted} strokeWidth={2.4} />
+              </Pressable>
+            </View>
+          ) : null}
+          {children}
+        </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+export type SheetAction = { label: string; description?: string; icon?: IconName; destructive?: boolean; onPress: () => void };
+
+/** Branded replacement for Alert / ActionSheetIOS menus. */
+export function ActionSheet({ visible, onClose, title, subtitle, actions }: { visible: boolean; onClose: () => void; title?: string; subtitle?: string; actions: SheetAction[] }) {
+  const { c } = useTheme();
+  const run = (a: SheetAction) => {
+    onClose();
+    setTimeout(a.onPress, 220); // let the sheet close first (pickers / alerts open cleanly)
+  };
+  return (
+    <Sheet visible={visible} onClose={onClose} title={title} subtitle={subtitle}>
+      <View style={{ gap: 4 }}>
+        {actions.map((a) => {
+          const tint = a.destructive ? c.danger : c.text;
+          return (
+            <Pressable key={a.label} onPress={() => run(a)} style={({ pressed }) => [styles.action, { backgroundColor: pressed ? c.surface : "transparent" }]}>
+              {a.icon ? (
+                <View style={[styles.actionIcon, { backgroundColor: a.destructive ? c.dangerSoft : c.accentSoft }]}>
+                  <Icon name={a.icon} size={18} color={a.destructive ? c.danger : c.accentText} />
+                </View>
+              ) : null}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: tint, fontSize: 15.5, ...font.semibold }}>{a.label}</Text>
+                {a.description ? <Text style={{ color: c.textMuted, fontSize: 12.5, marginTop: 1, ...font.regular }}>{a.description}</Text> : null}
+              </View>
+              {a.destructive ? null : <Icon name="chevron-forward" size={16} color={c.textFaint} />}
+            </Pressable>
+          );
+        })}
+      </View>
+    </Sheet>
   );
 }
 
@@ -303,7 +415,7 @@ export function DateField({
     <Field label={label} required={required} error={error} hint={hint}>
       <Pressable
         onPress={open}
-        style={[styles.inputWrap, { borderRadius: radius.md, backgroundColor: c.card, borderColor: error ? c.danger : c.dark ? "#2A2D35" : "#E2E8F0", minHeight: 48 }]}
+        style={[styles.inputWrap, { alignItems: "center", borderRadius: radius.md, backgroundColor: c.card, borderColor: error ? c.danger : c.dark ? "#2A2D35" : "#E2E8F0", minHeight: 48 }]}
       >
         <Icon name="calendar-outline" size={18} color={c.textFaint} />
         <Text style={{ flex: 1, fontSize: 15, color: value ? c.text : c.textFaint, ...font.regular }}>
@@ -333,8 +445,13 @@ export function DateField({
 
 const styles = StyleSheet.create({
   inputWrap: { flexDirection: "row", gap: 8, borderWidth: 1, paddingHorizontal: 14, borderRadius: 12 },
-  input: { flex: 1, fontSize: 15, minHeight: 46, paddingVertical: 0, fontFamily: "Figtree_400Regular" },
-  sheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingTop: 10, maxHeight: "88%" },
-  grabber: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 12 },
+  // includeFontPadding:false + fixed height keeps text and placeholder
+  // optically centred on Android (Figtree has tall ascenders).
+  input: { flex: 1, fontSize: 15, minHeight: 46, paddingVertical: 0, includeFontPadding: false, fontFamily: "Figtree_400Regular" },
+  sheet: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 10, maxHeight: "90%" },
+  grabber: { width: 38, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 14 },
+  close: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  action: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14 },
+  actionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   option: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: 10, borderRadius: 12 },
 });

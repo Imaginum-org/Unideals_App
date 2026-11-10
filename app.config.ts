@@ -7,12 +7,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Unideals",
   slug: "unideals-app",
+  owner: "imaginums-projs",
   version: "1.0.0",
   orientation: "portrait",
   scheme: "unideals",
   userInterfaceStyle: "automatic",
-  // Drop 1024x1024 PNGs into ./assets and uncomment for store builds:
-  // icon: "./assets/icon.png",
+  // Website favicon (frontend/public/fav.svg) rendered at 1024px.
+  icon: "./assets/icon.png",
   ios: {
     supportsTablet: false,
     bundleIdentifier: "in.unideals.app",
@@ -23,8 +24,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: "in.unideals.app",
-    // adaptiveIcon: { foregroundImage: "./assets/adaptive-icon.png", backgroundColor: "#3038FC" },
+    adaptiveIcon: { foregroundImage: "./assets/adaptive-icon.png", backgroundColor: "#3038FC" },
   },
+  web: { favicon: "./assets/favicon.png" },
   plugins: [
     "expo-router",
     // Native splash = the same brand blue the animated intro starts on, so
@@ -40,8 +42,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     "@react-native-community/datetimepicker",
+    // Edge-to-edge: content runs under transparent system bars. Without this,
+    // Android paints a white contrast scrim behind 3-button navigation.
+    ["expo-navigation-bar", { enforceContrast: false }],
   ],
   extra: {
-    eas: { projectId: process.env.EAS_PROJECT_ID },
+    eas: { "projectId": "7c9b74d3-7714-4877-9e33-89bf35b563b6" },
   },
 });

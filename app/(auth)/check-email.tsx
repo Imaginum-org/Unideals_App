@@ -65,7 +65,7 @@ export default function CheckEmail() {
 
   if (verified) {
     return (
-      <AuthShell title="Email verified 🎉" subtitle="Your account is ready. Log in to start buying and selling.">
+      <AuthShell title="Email verified. You're in." subtitle="Your account is ready. Log in to start buying and selling.">
         <Button title="Continue to log in" size="lg" onPress={() => router.replace("/login")} />
       </AuthShell>
     );

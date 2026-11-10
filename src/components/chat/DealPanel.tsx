@@ -2,6 +2,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Button, DateField, Input, T } from "@/components/ui";
+import { useAuthStore } from "@/store/auth";
 import { font, useTheme } from "@/theme";
 import { ORDER_STEPS, dealBadge, dealStatusToStep, inr, shortDate } from "@/utils/format";
 import type { Deal } from "@/types";
@@ -31,8 +32,9 @@ export function DealPanel(p: Props) {
   const { c, radius } = useTheme();
   const status = p.deal?.status || "negotiating";
   const isSeller = p.role === "selling";
+  const isGirl = useAuthStore((s) => s.user?.gender === "female");
   const step = dealStatusToStep(status);
-  const [open, setOpen] = useState(status !== "negotiating");
+  const [open, setOpen] = useState(true);
   const [amount, setAmount] = useState(String(p.deal?.current_price ?? ""));
   const [scheduling, setScheduling] = useState(false);
   const [date, setDate] = useState("");
@@ -80,6 +82,14 @@ export function DealPanel(p: Props) {
     <View>
       <DateField label="Pickup date" value={date} onChange={setDate} minimumDate={new Date()} />
       <Input label="Meet at" value={location} onChangeText={setLocation} placeholder="e.g. Library entrance, 5 pm" maxLength={200} />
+      {isGirl ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: -6, marginBottom: 10 }}>
+          <Icon name="shield-checkmark-outline" size={13} color={c.pink} />
+          <T variant="caption" color={c.textMuted} style={{ flex: 1 }}>
+            Pick a busy, well-lit spot in daytime. Bringing a friend is always a vibe.
+          </T>
+        </View>
+      ) : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Button kind="secondary" title="Cancel" size="sm" onPress={() => setScheduling(false)} />

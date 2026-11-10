@@ -6,6 +6,7 @@ import { Alert, FlatList, RefreshControl, ScrollView, View } from "react-native"
 import { chatApi, ordersApi, type OrderRow } from "@/api/chat";
 import { errorMessage } from "@/api/client";
 import { Avatar, Badge, Button, Card, Chip, EmptyState, ErrorState, Loader, Screen, T, TopBar } from "@/components/ui";
+import { Icon } from "@/components/ui/Icon";
 import { toast } from "@/lib/toast";
 import { useTheme } from "@/theme";
 import { ORDER_STEPS, dealBadge, dealStatusToStep, formatName, inr, isActiveDeal, shortDate } from "@/utils/format";
@@ -105,10 +106,20 @@ export default function Orders() {
                   </View>
                 ) : null}
                 {o.pickup ? (
-                  <T variant="caption" muted style={{ marginTop: 8 }}>
-                    📅 {shortDate(o.pickup.date)}
-                    {o.pickup.location ? `  ·  📍 ${o.pickup.location}` : ""}
-                  </T>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 }}>
+                    <Icon name="calendar-outline" size={13} color={c.textMuted} />
+                    <T variant="caption" muted>
+                      {shortDate(o.pickup.date)}
+                    </T>
+                    {o.pickup.location ? (
+                      <>
+                        <Icon name="location-outline" size={13} color={c.textMuted} style={{ marginLeft: 6 }} />
+                        <T variant="caption" muted numberOfLines={1} style={{ flexShrink: 1 }}>
+                          {o.pickup.location}
+                        </T>
+                      </>
+                    ) : null}
+                  </View>
                 ) : null}
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 }}>
                   <Avatar avatar={o.otherParty?.avatar as any} name={o.otherParty?.name} size={26} />
@@ -124,7 +135,7 @@ export default function Orders() {
               </Card>
             );
           }}
-          ListEmptyComponent={<EmptyState icon="bag-handle-outline" title="No orders here" message="Deals you make in chat show up here with their progress." action="Browse listings" onAction={() => router.push("/explore")} />}
+          ListEmptyComponent={<EmptyState icon="bag-handle-outline" title="No orders here" message="Deals you lock in chat show up here, from offer to pickup." action="Browse listings" onAction={() => router.push("/explore")} />}
         />
       )}
       {rateFor ? (

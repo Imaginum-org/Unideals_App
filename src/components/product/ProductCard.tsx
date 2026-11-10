@@ -3,7 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Avatar, Skeleton } from "@/components/ui";
+import { Avatar, Pressy, Skeleton } from "@/components/ui";
+import { haptic } from "@/lib/haptics";
+import { rememberProduct } from "@/lib/productPreview";
 import { Icon } from "@/components/ui/Icon";
 import { useWishlist } from "@/hooks/useWishlist";
 import { font, shadow, useTheme } from "@/theme";
@@ -50,19 +52,17 @@ function ProductCardBase({ product, width, showBoostBar }: { product: Product; w
   const rating = seller?.rating?.count ? Number(seller.rating.avg || 0).toFixed(1) : null;
 
   return (
-    <Pressable
+    <Pressy
+      onPressIn={() => rememberProduct(product)}
       onPress={() => router.push(productHref(product))}
-      style={({ pressed }) => [
-        styles.card,
-        { width, backgroundColor: c.productCard, borderColor, transform: [{ scale: pressed ? 0.985 : 1 }] },
-        shadow(c.dark, "md"),
-      ]}
+      scaleTo={0.975}
+      style={[styles.card, { width, backgroundColor: c.productCard, borderColor }, shadow(c.dark, "md")]}
       accessibilityLabel={`${product.title}, ₹${INR.format(product.selling_price || 0)}`}
     >
       {boosted && showBoostBar ? (
         <View style={styles.boostBar}>
           <Text numberOfLines={1} style={{ color: c.accentText, fontSize: 12, flexShrink: 1, ...font.black }}>
-            🚀 Boosted
+            Boosted
           </Text>
           {ends ? (
             <View style={[styles.ends, { backgroundColor: c.accentSoft }]}>
@@ -74,7 +74,7 @@ function ProductCardBase({ product, width, showBoostBar }: { product: Product; w
 
       <View style={[styles.imgWrap, { backgroundColor: c.dark ? "#202024" : "#ECEEF2" }]}>
         {img ? (
-          <Image source={{ uri: ikCard(img) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} recyclingKey={product._id} />
+          <Image source={{ uri: ikCard(img) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={180} recyclingKey={product._id} cachePolicy="memory-disk" />
         ) : (
           <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
             <Icon name="image-outline" size={26} color={c.textFaint} />
@@ -86,7 +86,10 @@ function ProductCardBase({ product, width, showBoostBar }: { product: Product; w
           </View>
         ) : null}
         <Pressable
-          onPress={() => toggle(product)}
+          onPress={() => {
+            haptic.select();
+            toggle(product);
+          }}
           hitSlop={8}
           style={[styles.heart, { backgroundColor: c.dark ? "rgba(24,24,27,0.85)" : "#F7F8FA" }, shadow(c.dark, "md")]}
           accessibilityLabel={saved ? "Remove from wishlist" : "Add to wishlist"}
@@ -102,7 +105,7 @@ function ProductCardBase({ product, width, showBoostBar }: { product: Product; w
           </Text>
           {product.isGirlsOnly ? (
             <View style={[styles.girls, { backgroundColor: c.dark ? "rgba(131,24,67,0.6)" : "#FCE7F3", borderColor: c.dark ? "#831843" : "#FBCFE8" }]}>
-              <Text style={{ color: c.dark ? "#FBCFE8" : "#BE185D", fontSize: 9.5, ...font.bold }}>🌸 Girls Only</Text>
+              <Text style={{ color: c.dark ? "#FBCFE8" : "#BE185D", fontSize: 9.5, ...font.bold }}>Girls Only</Text>
             </View>
           ) : null}
         </View>
@@ -134,7 +137,7 @@ function ProductCardBase({ product, width, showBoostBar }: { product: Product; w
           <Icon name="location-outline" size={14} color={c.textFaint} />
         </View>
       </View>
-    </Pressable>
+    </Pressy>
   );
 }
 

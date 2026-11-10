@@ -9,7 +9,7 @@ import {
   MessagesSquare, Minus, Moon, Package, Palette, Pencil, Plus, Receipt, RefreshCw, Reply, Rocket, Search, SendHorizontal, Settings,
   Share2, Shield, ShieldCheck, Shirt, ShoppingBag, SlidersHorizontal, Sparkles, Square, SquareCheck, Star, Sun, Tag, Tags, Ticket,
   Timer, Trash2, TrendingUp, Trophy, User, UserRound, Wallet, Watch, X, Zap, Volleyball, Bed, Headphones, Bot, ArrowUpDown, Store,
-  Phone, CreditCard, Cookie, Database, Gavel, GraduationCap, Scale, Sparkle,
+  Phone, CreditCard, Cookie, Database, Gavel, GraduationCap, Scale, Sparkle, IndianRupee, HandCoins, ImagePlus, History, ArrowUpRight,
   type LucideIcon,
 } from "lucide-react-native";
 import type { StyleProp, ViewStyle } from "react-native";
@@ -51,7 +51,7 @@ const MAP = {
   // content files (faqData / legalContent icon keys)
   phone: Phone, card: CreditCard, cookie: Cookie, database: Database, gavel: Gavel, grad: GraduationCap, scale: Scale,
   trash: Trash2, check: Check, clock: Clock, chat: MessageCircle, tag: Tag, flower: Flower2, shield: Shield, info: Info,
-  mail: Mail, lock: Lock, eye: Eye, image: ImageIcon, share: Share2, settings: Settings, flag: Flag, trophy: Trophy, sparkle: Sparkle,
+  mail: Mail, rupee: IndianRupee, "hand-coins": HandCoins, "image-plus": ImagePlus, history: History, "arrow-up-right": ArrowUpRight, lock: Lock, eye: Eye, image: ImageIcon, share: Share2, settings: Settings, flag: Flag, trophy: Trophy, sparkle: Sparkle,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof MAP;

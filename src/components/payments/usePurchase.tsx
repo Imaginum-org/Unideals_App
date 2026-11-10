@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
-import { router } from "expo-router";
+import { promptLogin } from "@/lib/authPrompt";
 import { errorMessage } from "@/api/client";
 import { paymentApi, type PaymentOrder } from "@/api/payments";
 import { toast } from "@/lib/toast";
@@ -33,7 +33,7 @@ export const usePurchase = () => {
   const start = useCallback(
     async (plan: string, label: string, productId?: string): Promise<boolean> => {
       if (!loggedIn) {
-        router.push("/login");
+        promptLogin("Log in to upgrade your plan");
         return false;
       }
       setBusy(plan);
@@ -57,7 +57,7 @@ export const usePurchase = () => {
     setOrder(null);
     try {
       await paymentApi.verify(r);
-      toast.success("Payment successful 🎉");
+      toast.success("Payment successful. You're all set.");
       await refreshProfile();
       ["billing", "pricing", "my-listings", "feed", "boost-summary", "product"].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       finish(true);

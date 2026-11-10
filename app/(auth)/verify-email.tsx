@@ -29,7 +29,7 @@ export default function VerifyEmail() {
 
   if (state === "working") return <Loader label="Verifying your email…" />;
   return state === "ok" ? (
-    <AuthShell title="Email verified 🎉" subtitle="You're all set. Log in to continue.">
+    <AuthShell title="Email verified. You're in." subtitle="You're all set. Log in to continue.">
       <Button title="Log in" size="lg" onPress={() => router.replace("/login")} />
     </AuthShell>
   ) : (

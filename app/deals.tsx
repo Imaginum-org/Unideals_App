@@ -49,7 +49,7 @@ export default function Deals() {
           ) : q.isError ? (
             <ErrorState message={errorMessage(q.error)} onRetry={() => q.refetch()} />
           ) : (
-            <EmptyState icon="flash-outline" title="No deals running right now" message="Sellers boost listings to feature them here. Check back soon." action="Browse everything" onAction={() => router.push("/explore")} />
+            <EmptyState icon="flash-outline" title="No deals running right now" message="No boosted listings right now. Check back after the next lecture." action="Browse everything" onAction={() => router.push("/explore")} />
           )
         }
         ListFooterComponent={items.length ? <Text style={{ color: c.textFaint, textAlign: "center", marginTop: 18, fontSize: 13, ...font.medium }}>That's every deal right now</Text> : undefined}

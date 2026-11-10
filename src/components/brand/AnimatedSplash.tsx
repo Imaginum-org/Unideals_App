@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Linking, StyleSheet, Text, View } from "react-native";
 import Svg, { G, Path } from "react-native-svg";
 import { LOGO_PATHS, LOGO_VIEWBOX } from "./logoPaths";
 
@@ -8,7 +8,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 const BRAND = "#3838EC";
 const WORD = "Unideals";
 const DASH = 2600; // longer than any logo outline in viewBox units
-const MIN_SHOW_MS = 2300;
+const MIN_SHOW_MS = 3600;
+const IMAGINUM_URL = "https://imaginumorg.vercel.app";
 
 /**
  * Launch intro: full-screen brand blue, the logo mark draws itself on,
@@ -41,18 +42,18 @@ export function AnimatedSplash({ ready, onDone }: { ready: boolean; onDone: () =
         const ease = Easing.bezier(0.22, 1, 0.36, 1);
         Animated.sequence([
           Animated.parallel([
-            Animated.timing(draw, { toValue: 1, duration: 950, easing: Easing.inOut(Easing.cubic), useNativeDriver: false }),
-            Animated.timing(pop, { toValue: 1, duration: 950, easing: ease, useNativeDriver: true }),
+            Animated.timing(draw, { toValue: 1, duration: 1150, easing: Easing.inOut(Easing.cubic), useNativeDriver: false }),
+            Animated.timing(pop, { toValue: 1, duration: 1150, easing: ease, useNativeDriver: true }),
           ]),
           Animated.parallel([
-            Animated.timing(fill, { toValue: 1, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+            Animated.timing(fill, { toValue: 1, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: false }),
             Animated.timing(ring, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }),
             Animated.stagger(
-              55,
-              letters.map((v) => Animated.timing(v, { toValue: 1, duration: 460, easing: ease, useNativeDriver: true })),
+              70,
+              letters.map((v) => Animated.timing(v, { toValue: 1, duration: 520, easing: ease, useNativeDriver: true })),
             ),
           ]),
-          Animated.timing(tag, { toValue: 1, duration: 420, easing: ease, useNativeDriver: true }),
+          Animated.timing(tag, { toValue: 1, duration: 520, easing: ease, useNativeDriver: true }),
         ]).start(() => !cancelled && setPlayed(true));
       });
     return () => {
@@ -64,7 +65,7 @@ export function AnimatedSplash({ ready, onDone }: { ready: boolean; onDone: () =
     if (!ready || !played) return;
     const wait = Math.max(0, MIN_SHOW_MS - (Date.now() - started.current));
     const t = setTimeout(() => {
-      Animated.timing(exit, { toValue: 0, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onDone());
+      Animated.timing(exit, { toValue: 0, duration: 450, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onDone());
     }, wait);
     return () => clearTimeout(t);
   }, [ready, played, exit, onDone]);
@@ -139,8 +140,12 @@ export function AnimatedSplash({ ready, onDone }: { ready: boolean; onDone: () =
       </View>
 
       <Animated.View style={[styles.footer, { opacity: tag }]}>
-        <Text style={styles.by}>by</Text>
-        <Text style={styles.company}>Imaginum</Text>
+        <Text style={styles.by} numberOfLines={1}>
+          by{" "}
+          <Text style={styles.company} onPress={() => Linking.openURL(IMAGINUM_URL).catch(() => {})} accessibilityRole="link">
+            Imaginum
+          </Text>
+        </Text>
       </Animated.View>
     </Animated.View>
   );
@@ -155,6 +160,6 @@ const styles = StyleSheet.create({
   letter: { color: "#FFFFFF", fontSize: 44, letterSpacing: -1.2, fontFamily: "Figtree_700Bold" },
   tagline: { color: "rgba(255,255,255,0.8)", fontSize: 15, marginTop: 10, fontFamily: "Figtree_500Medium" },
   footer: { position: "absolute", bottom: 54, left: 0, right: 0, alignItems: "center" },
-  by: { color: "rgba(255,255,255,0.6)", fontSize: 11.5, letterSpacing: 2, textTransform: "uppercase", fontFamily: "Figtree_500Medium" },
-  company: { color: "#FFFFFF", fontSize: 17, letterSpacing: 0.4, marginTop: 2, fontFamily: "Figtree_700Bold" },
+  by: { color: "rgba(255,255,255,0.7)", fontSize: 15, fontFamily: "Figtree_500Medium" },
+  company: { color: "#FFFFFF", fontSize: 15, letterSpacing: 0.2, fontFamily: "Figtree_700Bold", textDecorationLine: "underline" },
 });

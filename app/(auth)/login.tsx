@@ -1,4 +1,5 @@
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
+import { finishAuth } from "@/lib/authPrompt";
 import { useState } from "react";
 import { Text } from "react-native";
 import type { AxiosError } from "axios";
@@ -10,9 +11,9 @@ import { Button, Card, Input, T } from "@/components/ui";
 import { useAuthStore } from "@/store/auth";
 import { font, useTheme } from "@/theme";
 
-const done = () => (router.canGoBack() ? router.back() : router.replace("/"));
-
 export default function Login() {
+  const { next } = useLocalSearchParams<{ next?: string }>();
+  const done = () => finishAuth(next);
   const { c } = useTheme();
   const completeLogin = useAuthStore((s) => s.completeLogin);
   const [email, setEmail] = useState("");

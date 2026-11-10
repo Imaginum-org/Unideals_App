@@ -1,5 +1,6 @@
 import { Icon } from "@/components/ui/Icon";
 import { Link, router } from "expo-router";
+import { finishAuth } from "@/lib/authPrompt";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { authApi } from "@/api/auth";
@@ -10,7 +11,7 @@ import { Button, Card, Input, T } from "@/components/ui";
 import { font, useTheme } from "@/theme";
 import { passwordChecks } from "@/utils/format";
 
-const goHome = () => router.replace("/");
+const goHome = () => finishAuth();
 
 export default function Signup() {
   const { c } = useTheme();

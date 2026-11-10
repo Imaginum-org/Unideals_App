@@ -13,6 +13,7 @@ type Prefs = {
   setGirlsMode: (on: boolean) => void;
   setGuestCampusSlug: (slug: string | null) => void;
   pushRecentSearch: (q: string) => void;
+  removeRecentSearch: (q: string) => void;
   clearRecentSearches: () => void;
 };
 
@@ -34,6 +35,7 @@ export const usePrefsStore = create<Prefs>()(
             recentSearches: [v, ...s.recentSearches.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 8),
           };
         }),
+      removeRecentSearch: (q) => set((s) => ({ recentSearches: s.recentSearches.filter((x) => x !== q) })),
       clearRecentSearches: () => set({ recentSearches: [] }),
     }),
     {

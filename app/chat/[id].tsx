@@ -5,29 +5,29 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   ScrollView,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { chatApi } from "@/api/chat";
 import { errorMessage } from "@/api/client";
 import { userApi } from "@/api/user";
 import { DealPanel } from "@/components/chat/DealPanel";
+import { haptic } from "@/lib/haptics";
 import { ChatWallpaper } from "@/components/chat/Wallpaper";
 import { productApi } from "@/api/products";
 import { RateSheet } from "@/components/chat/RateSheet";
 import { MessageBubble } from "@/components/chat/MessageBubble";
-import { Avatar, Button, ErrorState, IconButton, Input, Loader, OptionSheet, Sheet, T } from "@/components/ui";
+import { ActionSheet, Avatar, Button, ErrorState, IconButton, Input, Loader, OptionSheet, Sheet, T, type SheetAction } from "@/components/ui";
+import { OfferSheet, amountFromText } from "@/components/chat/OfferSheet";
 import { REPORT_REASONS } from "@/constants/product";
 import { UNREAD_CHAT_KEY } from "@/hooks/useRealtime";
 import { acquireSocket, releaseSocket } from "@/lib/socket";
@@ -66,7 +66,8 @@ export default function ChatThread() {
   const [peerTyping, setPeerTyping] = useState(false);
   const [online, setOnline] = useState<string[]>([]);
   const [offerOpen, setOfferOpen] = useState(false);
-  const [offerAmount, setOfferAmount] = useState("");
+  const [offerInitial, setOfferInitial] = useState<number | undefined>();
+  const [menu, setMenu] = useState<{ title?: string; actions: SheetAction[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
@@ -232,6 +233,7 @@ export default function ChatThread() {
       const d: Deal | undefined = res?.deal || (res?.status ? res : undefined);
       if (d) setDeal(d);
       else chatApi.deal(id).then((x) => x && setDeal(x)).catch(() => {});
+      haptic.success();
       toast.success(ok);
       qc.invalidateQueries({ queryKey: ["orders"] });
     } catch (err) {
@@ -241,8 +243,13 @@ export default function ChatThread() {
     }
   };
 
-  const sendOffer = async () => {
-    const amt = Number(offerAmount);
+  const openOffer = (amount?: number) => {
+    haptic.tap();
+    setOfferInitial(amount);
+    setOfferOpen(true);
+  };
+
+  const sendOffer = async (amt: number, fromComposer = false) => {
     if (!amt || amt < 1) return;
     setBusy(true);
     try {
@@ -250,7 +257,8 @@ export default function ChatThread() {
       if (r?.deal) setDeal(r.deal);
       if (r?.message) upsert(r.message);
       setOfferOpen(false);
-      setOfferAmount("");
+      if (fromComposer) setText("");
+      haptic.success();
     } catch (err) {
       toast.error(errorMessage(err, "Couldn't send offer"));
     } finally {
@@ -263,26 +271,27 @@ export default function ChatThread() {
 
   const onBubbleLongPress = (m: Message) => {
     if (m.pending || m.message_type === "system") return;
-    const actions = [
-      { label: "Reply", run: () => setReplyTo(m) },
-      ...(m.message_type === "text" && !m.is_flagged ? [{ label: "Copy", run: () => Clipboard.setStringAsync(m.text).then(() => toast("Copied")) }] : []),
-    ];
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions({ options: [...actions.map((a) => a.label), "Cancel"], cancelButtonIndex: actions.length }, (i) => actions[i]?.run());
-    } else {
-      Alert.alert("Message", undefined, [...actions.map((a) => ({ text: a.label, onPress: a.run })), { text: "Cancel", style: "cancel" as const }]);
-    }
+    haptic.tap();
+    setMenu({
+      actions: [
+        { label: "Reply", icon: "reply", onPress: () => setReplyTo(m) },
+        ...(m.message_type === "text" && !m.is_flagged
+          ? [{ label: "Copy text", icon: "copy" as const, onPress: () => void Clipboard.setStringAsync(m.text).then(() => toast("Copied")) }]
+          : []),
+      ],
+    });
   };
 
   const openMenu = () => {
     const status = deal?.status;
     const canCancel = status && !["completed", "cancelled"].includes(status);
-    const items = [
-      ...(conv.data?.product_id?._id ? [{ label: "View listing", run: () => router.push(`/product/${conv.data!.product_id!._id}`) }] : []),
+    const items: { label: string; destructive?: boolean; icon: SheetAction["icon"]; run: () => void }[] = [
+      ...(conv.data?.product_id?._id ? [{ label: "View listing", icon: "bag-handle-outline" as const, run: () => router.push(`/product/${conv.data!.product_id!._id}`) }] : []),
       ...(canCancel
         ? [
             {
               label: "Cancel deal",
+              icon: "close-circle" as const,
               destructive: true,
               run: () =>
                 Alert.alert("Cancel this deal?", "The item becomes available to others again.", [
@@ -292,17 +301,10 @@ export default function ChatThread() {
             },
           ]
         : []),
-      ...(conv.data?.product_id?._id ? [{ label: "Report listing", destructive: true, run: () => setReportProductOpen(true) }] : []),
-      { label: "Report user", destructive: true, run: () => setReportOpen(true) },
+      ...(conv.data?.product_id?._id ? [{ label: "Report listing", icon: "flag-outline" as const, destructive: true, run: () => setReportProductOpen(true) }] : []),
+      { label: "Report user", icon: "flag-outline", destructive: true, run: () => setReportOpen(true) },
     ];
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: [...items.map((i) => i.label), "Close"], cancelButtonIndex: items.length, destructiveButtonIndex: items.findIndex((i) => (i as any).destructive) },
-        (i) => items[i]?.run(),
-      );
-    } else {
-      Alert.alert("Options", undefined, [...items.map((i) => ({ text: i.label, onPress: i.run })), { text: "Close", style: "cancel" as const }]);
-    }
+    setMenu({ title: "Chat options", actions: items.map((i) => ({ label: i.label, icon: i.icon, destructive: i.destructive, onPress: i.run })) });
   };
 
   const needle = searchText.trim().toLowerCase();
@@ -331,6 +333,8 @@ export default function ChatThread() {
   const negotiable = product?.is_negotiable !== false;
   const canOffer = negotiable && (!deal || ["negotiating", "offer_accepted", "cancelled"].includes(deal.status));
   const pickup = product?.pickup_address_snapshot;
+  const listed = product?.selling_price ?? data.product_snapshot?.selling_price;
+  const typedAmount = canOffer && !replyTo ? amountFromText(text) : 0;
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: c.bg }}>
@@ -390,7 +394,7 @@ export default function ChatThread() {
           <Text style={{ color: c.textMuted, fontSize: 12, fontFamily: "Figtree_500Medium" }}>{needle ? `${reversed.length} found` : ""}</Text>
         </View>
       ) : null}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ChatWallpaper id={chatSettings.wallpaper} />
         <FlatList
           inverted
@@ -406,8 +410,12 @@ export default function ChatThread() {
               busy={busy}
               onAccept={(m) => respond(m, "accept")}
               onDecline={(m) => respond(m, "decline")}
-              onCounter={() => setOfferOpen(true)}
+              onCounter={() => openOffer()}
               onLongPress={onBubbleLongPress}
+              onRetry={(m) => {
+                setMessages((cur) => cur.filter((x) => x._id !== m._id));
+                send(m.text);
+              }}
             />
           )}
           onEndReached={loadOlder}
@@ -415,22 +423,51 @@ export default function ChatThread() {
           ListFooterComponent={loadingOlder ? <ActivityIndicator style={{ margin: 12 }} color={c.accent} /> : undefined}
           ListEmptyComponent={
             <View style={{ transform: [{ scaleY: -1 }], alignItems: "center", padding: 32, gap: 6 }}>
-              <T variant="h3">Say hi to {otherName.split(" ")[0]} 👋</T>
+              <T variant="h3">Say hi to {otherName.split(" ")[0]}</T>
               <T variant="small" muted center>
-                Ask about the item, agree on a price, then confirm the deal here.
+                Shoot your shot: ask about the item, agree on a price, then lock the deal here.
               </T>
             </View>
           }
         />
 
         {!text && !searchOpen && !replyTo ? (
-          <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingVertical: 8 }}>
+          // flexShrink 0: in this column the FlatList would otherwise squeeze the row to nothing.
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0, flexShrink: 0 }}
+            contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingVertical: 10, alignItems: "center" }}
+          >
+            {canOffer ? (
+              <Pressable onPress={() => openOffer()} style={({ pressed }) => [styles.quick, { backgroundColor: c.accent, borderColor: c.accent, opacity: pressed ? 0.85 : 1 }]}>
+                <Icon name="hand-coins" size={14} color="#fff" />
+                <Text style={[styles.quickText, { color: "#fff", fontFamily: "Figtree_600SemiBold" }]}>Make an offer</Text>
+              </Pressable>
+            ) : null}
             {QUICK_CHIPS.map((q) => (
-              <Pressable key={q} onPress={() => send(q)} style={({ pressed }) => [styles.quick, { backgroundColor: pressed ? c.accentSoft : c.card, borderColor: c.border }]}>
-                <Text style={{ color: c.text, fontSize: 12.5, fontFamily: "Figtree_500Medium" }}>{q}</Text>
+              <Pressable key={q} onPress={() => send(q)} style={({ pressed }) => [styles.quick, { backgroundColor: pressed ? c.accentSoft : c.card, borderColor: c.dark ? "#2A2D33" : "#E4E7EC" }]}>
+                <Text style={[styles.quickText, { color: c.text }]}>{q}</Text>
               </Pressable>
             ))}
           </ScrollView>
+        ) : null}
+        {typedAmount ? (
+          <View style={[styles.payBar, { backgroundColor: c.card, borderColor: c.accentSoftStrong }]}>
+            <View style={[styles.payIcon, { backgroundColor: c.accentSoft }]}>
+              <Icon name="hand-coins" size={17} color={c.accentText} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: c.text, fontSize: 14, fontFamily: "Figtree_600SemiBold" }}>Offer {inr(typedAmount)} for this item?</Text>
+              <Text style={{ color: c.textMuted, fontSize: 12, fontFamily: "Figtree_400Regular" }}>
+                {listed ? `Listed at ${inr(listed)} · they can accept or counter` : "They can accept or counter"}
+              </Text>
+            </View>
+            <Pressable onPress={() => sendOffer(typedAmount, true)} disabled={busy} style={({ pressed }) => [styles.payBtn, { backgroundColor: c.accent, opacity: pressed || busy ? 0.85 : 1 }]}>
+              <Text style={{ color: "#fff", fontSize: 13.5, fontFamily: "Figtree_700Bold" }}>Offer</Text>
+            </Pressable>
+          </View>
         ) : null}
         {/* Composer */}
         <View style={[styles.composerWrap, { borderColor: c.border, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: c.bg }]}>
@@ -449,14 +486,14 @@ export default function ChatThread() {
           ) : null}
           <View style={styles.composer}>
             {canOffer ? (
-              <Pressable onPress={() => setOfferOpen(true)} style={[styles.offerBtn, { backgroundColor: c.accentSoft }]} accessibilityLabel="Make an offer">
-                <Icon name="pricetag-outline" size={18} color={c.accentText} />
+              <Pressable onPress={() => openOffer()} style={({ pressed }) => [styles.offerBtn, { backgroundColor: c.accentSoft, borderColor: c.accentSoftStrong, transform: [{ scale: pressed ? 0.92 : 1 }] }]} accessibilityLabel="Make an offer">
+                <Icon name="rupee" size={18} color={c.accentText} strokeWidth={2.4} />
               </Pressable>
             ) : null}
             <TextInput
               value={text}
               onChangeText={onChangeText}
-              placeholder="Message"
+              placeholder="Type a message"
               placeholderTextColor={c.textFaint}
               multiline
               maxLength={2000}
@@ -471,16 +508,26 @@ export default function ChatThread() {
               <Icon name="send" size={18} color={text.trim() ? "#fff" : c.textFaint} />
             </Pressable>
           </View>
+          <View style={styles.privacy}>
+            <Icon name="lock-closed-outline" size={11} color={c.textFaint} />
+            <Text style={{ flexShrink: 1, textAlign: "center", color: c.textFaint, fontSize: 11, lineHeight: 14, fontFamily: "Figtree_500Medium" }}>
+              Your chats stay between you two. We don’t snoop, only flagged or reported messages get a review.
+            </Text>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
-      <Sheet visible={offerOpen} onClose={() => setOfferOpen(false)} title="Make an offer">
-        <T variant="small" muted style={{ marginBottom: 12 }}>
-          Listed at {inr(product?.selling_price ?? data.product_snapshot?.selling_price)}. The other side can accept, decline or counter.
-        </T>
-        <Input prefix="₹" value={offerAmount} onChangeText={(t) => setOfferAmount(t.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="Your offer" autoFocus />
-        <Button title="Send offer" onPress={sendOffer} loading={busy} disabled={!Number(offerAmount)} />
-      </Sheet>
+      <OfferSheet
+        visible={offerOpen}
+        onClose={() => setOfferOpen(false)}
+        listed={listed}
+        title={productTitle}
+        image={productImg ? ikThumb(productImg, 120) : undefined}
+        initial={offerInitial}
+        busy={busy}
+        onSend={(amt) => sendOffer(amt)}
+      />
+      <ActionSheet visible={Boolean(menu)} onClose={() => setMenu(null)} title={menu?.title} actions={menu?.actions || []} />
 
       <ReportUserSheet visible={reportOpen} onClose={() => setReportOpen(false)} userId={other?._id} />
       <ReportUserSheet visible={reportProductOpen} onClose={() => setReportProductOpen(false)} productId={product?._id} />
@@ -526,8 +573,13 @@ const styles = StyleSheet.create({
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
   input: { flex: 1, minHeight: 42, maxHeight: 120, borderRadius: 21, borderWidth: 1, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10, fontSize: 15.5 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
-  offerBtn: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  offerBtn: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   searchBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, height: 44, borderBottomWidth: StyleSheet.hairlineWidth },
-  quick: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  quick: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, borderWidth: 1, borderRadius: 17, paddingHorizontal: 14 },
+  quickText: { fontSize: 13, includeFontPadding: false, fontFamily: "Figtree_500Medium" },
+  payBar: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 10, marginBottom: 8, padding: 10, borderRadius: 16, borderWidth: 1 },
+  payIcon: { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  payBtn: { height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  privacy: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingTop: 7, paddingHorizontal: 10 },
   replyBar: { flexDirection: "row", alignItems: "center", borderLeftWidth: 3, borderRadius: 8, paddingLeft: 10, marginBottom: 8 },
 });

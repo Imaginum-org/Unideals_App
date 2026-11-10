@@ -1,13 +1,57 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
-import type { ReactElement } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, Text, useWindowDimensions, View } from "react-native";
+import { useRef, useState, type ReactElement } from "react";
+import { ActivityIndicator, FlatList, Platform, RefreshControl, Text, useWindowDimensions, View } from "react-native";
 import { errorMessage } from "@/api/client";
 import { productApi, type FeedParams } from "@/api/products";
 import { Button, EmptyState, ErrorState } from "@/components/ui";
 import { font, useTheme } from "@/theme";
 import type { Product } from "@/types";
 import { ProductCard, ProductCardSkeleton } from "./ProductCard";
+import { useTabBarSpace } from "@/hooks/useLayout";
+import { RefreshCard, type RefreshPhase } from "@/components/ui/RefreshCard";
+import { haptic } from "@/lib/haptics";
+import { useTabPress } from "@/lib/tabEvents";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Pull-to-refresh with the branded RefreshCard: the native gesture is kept
+ * (reliable on both platforms) but its stock spinner is hidden.
+ */
+export const useBrandedRefresh = (run: () => Promise<unknown>) => {
+  const [phase, setPhase] = useState<RefreshPhase>("idle");
+  const busy = useRef(false);
+  const refresh = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    haptic.tap();
+    setPhase("loading");
+    const t0 = Date.now();
+    try {
+      await run();
+    } catch {
+      // errors surface in the list itself
+    }
+    await sleep(Math.max(0, 900 - (Date.now() - t0)));
+    setPhase("done");
+    await sleep(950);
+    setPhase("idle");
+    busy.current = false;
+  };
+  const control = (
+    <RefreshControl
+      refreshing={phase === "loading"}
+      onRefresh={refresh}
+      // Hide the stock spinner; RefreshCard is the visual.
+      tintColor="transparent"
+      colors={["transparent"]}
+      progressBackgroundColor="transparent"
+      progressViewOffset={Platform.OS === "android" ? -400 : undefined}
+    />
+  );
+  return { phase, refresh, control };
+};
 
 export const GRID_GAP = 10;
 export const GRID_PAD = 16;
@@ -57,8 +101,16 @@ export function ProductGrid({
   empty,
   enabled = true,
   footer,
-  endMessage = "You're all caught up on the latest drops ✨",
+  endMessage = "That's the whole feed. Go touch grass, new drops land daily.",
+  inTabs,
+  onRefresh,
+  tab,
 }: {
+  inTabs?: boolean;
+  /** Extra work on pull-to-refresh (e.g. other Home sections). */
+  onRefresh?: () => Promise<unknown>;
+  /** Tab name whose tab-bar tap scrolls this grid to the top and reloads. */
+  tab?: string;
   params: FeedParams & { q?: string };
   header?: ReactElement | null;
   empty?: ReactElement;
@@ -68,25 +120,38 @@ export function ProductGrid({
 }) {
   const { c } = useTheme();
   const { cols, cardWidth } = useCardWidth();
+  const { space } = useTabBarSpace();
   const q = useProductFeed(params, enabled);
   const items: Product[] = q.data?.pages.flatMap((p) => p.data) ?? [];
   const done = !q.hasNextPage && items.length > 0 && !q.isLoading;
+  const listRef = useRef<FlatList<Product>>(null);
+  const { phase, refresh, control } = useBrandedRefresh(() => Promise.all([q.refetch(), onRefresh?.()]));
+  useTabPress(tab || "__none", () => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    refresh();
+  });
 
   return (
+    <View style={{ flex: 1 }}>
+    <RefreshCard phase={phase} />
     <FlatList
+      ref={listRef}
       key={cols}
       data={items}
       numColumns={cols}
       keyExtractor={(p) => p._id}
       columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: GRID_PAD }}
-      contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 28 }}
+      contentContainerStyle={{ gap: GRID_GAP, paddingBottom: inTabs ? space : 28 }}
+      initialNumToRender={6}
+      maxToRenderPerBatch={6}
+      windowSize={9}
       ListHeaderComponent={header ?? undefined}
       renderItem={({ item }) => <ProductCard product={item} width={cardWidth} />}
       onEndReachedThreshold={0.6}
       onEndReached={() => {
         if (q.hasNextPage && !q.isFetchingNextPage) q.fetchNextPage();
       }}
-      refreshControl={<RefreshControl refreshing={q.isRefetching && !q.isFetchingNextPage} onRefresh={() => void q.refetch()} tintColor={c.accent} />}
+      refreshControl={control}
       ListEmptyComponent={
         q.isLoading ? (
           <SkeletonGrid />
@@ -115,5 +180,6 @@ export function ProductGrid({
         </View>
       }
     />
+    </View>
   );
 }

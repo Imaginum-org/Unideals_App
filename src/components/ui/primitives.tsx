@@ -23,6 +23,7 @@ import { font, shadow, useTheme } from "@/theme";
 import { avatarUrl, initials } from "@/utils/format";
 import { ikThumb } from "@/utils/image";
 import type { Avatar as AvatarT } from "@/types";
+import { haptic } from "@/lib/haptics";
 import { Icon, type IconName } from "./Icon";
 
 export type { IconName } from "./Icon";
@@ -145,6 +146,44 @@ export function TopBar({
   );
 }
 
+// ── Pressy: spring press + optional haptic (used by every tappable) ───────
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+export function Pressy({
+  children,
+  style,
+  scaleTo = 0.97,
+  haptics,
+  onPress,
+  onPressIn,
+  onPressOut,
+  disabled,
+  ...rest
+}: Omit<PressableProps, "style" | "children"> & { children?: ReactNode; style?: StyleProp<ViewStyle>; scaleTo?: number; haptics?: boolean }) {
+  const v = useRef(new Animated.Value(1)).current;
+  const to = (x: number) => Animated.spring(v, { toValue: x, useNativeDriver: true, speed: 50, bounciness: x === 1 ? 7 : 0 }).start();
+  return (
+    <AnimatedPressable
+      {...rest}
+      disabled={disabled}
+      onPressIn={(e) => {
+        if (!disabled) to(scaleTo);
+        onPressIn?.(e);
+      }}
+      onPressOut={(e) => {
+        to(1);
+        onPressOut?.(e);
+      }}
+      onPress={(e) => {
+        if (haptics) haptic.tap();
+        onPress?.(e);
+      }}
+      style={[style, { transform: [{ scale: v }] }]}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
 // ── Buttons ─────────────────────────────────────────────────────────────
 type BtnKind = "primary" | "secondary" | "ghost" | "danger" | "soft" | "dark" | "white";
 export function Button({
@@ -184,12 +223,13 @@ export function Button({
   const h = size === "sm" ? 36 : size === "lg" ? 50 : 44;
   const off = disabled || loading;
   return (
-    <Pressable
+    <Pressy
       accessibilityRole="button"
       accessibilityState={{ disabled: off, busy: loading }}
       disabled={off}
       onPress={onPress}
-      style={({ pressed }) => [
+      haptics
+      style={[
         {
           height: h,
           borderRadius: size === "lg" ? 12 : 10,
@@ -203,7 +243,6 @@ export function Button({
           gap: 7,
           alignSelf: full ? "stretch" : "flex-start",
           opacity: off ? 0.55 : 1,
-          transform: [{ scale: pressed && !off ? 0.98 : 1 }],
         },
         kind === "primary" && !off ? { shadowColor: c.accent, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 } : null,
         style,
@@ -218,7 +257,7 @@ export function Button({
           {iconRight ? <Icon name={iconRight} size={size === "sm" ? 15 : 17} color={p.fg} /> : null}
         </>
       )}
-    </Pressable>
+    </Pressy>
   );
 }
 
@@ -234,14 +273,14 @@ export function IconButton({
 }: Omit<PressableProps, "style"> & { icon: IconName; size?: number; color?: string; badge?: number; filled?: boolean; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
   return (
-    <Pressable hitSlop={6} onPress={onPress} style={({ pressed }) => [styles.iconBtn, { backgroundColor: pressed ? (c.dark ? "rgba(255,255,255,0.08)" : "#F1F5F9") : "transparent" }, style]} {...rest}>
+    <Pressy hitSlop={6} onPress={onPress} scaleTo={0.88} style={[styles.iconBtn, style]} {...rest}>
       <Icon name={icon} size={size} color={color || (c.dark ? "#D4D4D8" : "#090A0B")} filled={filled} strokeWidth={1.8} />
       {badge ? (
         <View style={[styles.badgeDot, { backgroundColor: c.badgeRed, borderColor: c.barSolid }]}>
           <Text style={styles.badgeText}>{badge > 99 ? "99+" : badge}</Text>
         </View>
       ) : null}
-    </Pressable>
+    </Pressy>
   );
 }
 
@@ -251,9 +290,9 @@ export function Card({ children, style, onPress, flat }: { children: ReactNode; 
   const base: ViewStyle = { backgroundColor: c.card, borderRadius: 16, borderWidth: 1, borderColor: c.border, padding: 16, ...(flat ? {} : shadow(c.dark, "sm")) };
   if (!onPress) return <View style={[base, style]}>{children}</View>;
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [base, { transform: [{ scale: pressed ? 0.99 : 1 }] }, style]}>
+    <Pressy onPress={onPress} scaleTo={0.985} style={[base, style]}>
       {children}
-    </Pressable>
+    </Pressy>
   );
 }
 
@@ -312,21 +351,24 @@ export function Chip({ label, selected, onPress, icon, count }: { label: string;
   const { c } = useTheme();
   const fgSel = c.dark ? "#0F172A" : "#FFFFFF";
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
+    <Pressy
+      onPress={() => {
+        haptic.select();
+        onPress?.();
+      }}
+      scaleTo={0.94}
+      style={[
         styles.chip,
         {
           backgroundColor: selected ? (c.dark ? "#FFFFFF" : "#0F172A") : c.card,
           borderColor: selected ? (c.dark ? "#FFFFFF" : "#0F172A") : c.border,
-          transform: [{ scale: pressed ? 0.97 : 1 }],
         },
       ]}
     >
       {icon ? <Icon name={icon} size={14} color={selected ? fgSel : c.textMuted} /> : null}
       <Text style={{ fontSize: 13, ...font.semibold, color: selected ? fgSel : c.dark ? "#E4E4E7" : "#334155" }}>{label}</Text>
       {count !== undefined ? <Text style={{ fontSize: 12, ...font.semibold, color: selected ? (c.dark ? "#475569" : "rgba(255,255,255,0.7)") : c.textFaint }}>{count}</Text> : null}
-    </Pressable>
+    </Pressy>
   );
 }
 
@@ -338,7 +380,7 @@ export function Segmented<V extends string>({ value, options, onChange }: { valu
       {options.map((o) => {
         const active = o.value === value;
         return (
-          <Pressable key={o.value} onPress={() => onChange(o.value)} style={[styles.segmentBtn, active && { backgroundColor: c.card, ...shadow(c.dark, "sm") }]}>
+          <Pressable key={o.value} onPress={() => { if (o.value !== value) haptic.select(); onChange(o.value); }} style={[styles.segmentBtn, active && { backgroundColor: c.card, ...shadow(c.dark, "sm") }]}>
             <Text numberOfLines={1} style={{ color: active ? c.text : c.textMuted, fontSize: 13, ...font.semibold }}>
               {o.label}
               {o.count !== undefined ? <Text style={{ color: c.textFaint }}>{`  ${o.count}`}</Text> : null}

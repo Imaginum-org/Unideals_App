@@ -39,7 +39,7 @@ export function EmptyState({
           {message}
         </T>
       ) : null}
-      {action ? <Button title={action} onPress={onAction} full={false} style={{ marginTop: 10 }} /> : null}
+      {action ? <Button title={action} onPress={onAction} full={false} style={{ marginTop: 10, alignSelf: "center" }} /> : null}
     </View>
   );
 }

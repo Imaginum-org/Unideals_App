@@ -7,12 +7,15 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { chatApi } from "@/api/chat";
 import { errorCode, errorMessage, errorStatus } from "@/api/client";
 import { productApi } from "@/api/products";
-import { HotDealChip, productHref } from "@/components/product/ProductCard";
+import { HotDealChip } from "@/components/product/ProductCard";
 import { Avatar, Badge, Button, Card, Divider, EmptyState, IconButton, Input, OptionSheet, Sheet, Skeleton } from "@/components/ui";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { CONDITIONS, PAYMENT_OPTIONS, REPORT_REASONS, USAGE_DURATIONS, categoryOf, labelOf, rulesFor } from "@/constants/product";
 import { useCampus } from "@/hooks/useCampus";
 import { useWishlist } from "@/hooks/useWishlist";
+import { previewProduct } from "@/lib/productPreview";
+import { promptLogin } from "@/lib/authPrompt";
+import { useRecentStore } from "@/store/recent";
 import { WEB_URL } from "@/lib/env";
 import { toast } from "@/lib/toast";
 import { useAuthStore } from "@/store/auth";
@@ -80,8 +83,19 @@ export default function ProductScreen() {
   const [manageOpen, setManageOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
-  const q = useQuery({ queryKey: ["product", id, campusSlug], queryFn: () => productApi.detail(id, { campus_slug: campusSlug }), staleTime: 30_000 });
+  const q = useQuery({
+    queryKey: ["product", id, campusSlug],
+    queryFn: () => productApi.detail(id, { campus_slug: campusSlug }),
+    staleTime: 30_000,
+    // Paint instantly from the card the user tapped; the full record replaces it.
+    placeholderData: () => previewProduct(id),
+  });
   const p = q.data;
+  const partial = q.isPlaceholderData;
+  const pushRecent = useRecentStore((s) => s.push);
+  useEffect(() => {
+    if (q.data && !q.isPlaceholderData) pushRecent(q.data);
+  }, [q.data, q.isPlaceholderData, pushRecent]);
 
   const viewed = useRef(false);
   useEffect(() => {
@@ -113,7 +127,7 @@ export default function ProductScreen() {
     onSuccess: (_r, action) => {
       setManageOpen(false);
       ["product", "feed", "my-listings", "boost-summary"].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
-      toast.success({ sold: "Marked as sold", unlist: "Listing hidden", relist: "Listing is live again", delete: "Listing deleted", boost: "Boosted 🚀" }[action]);
+      toast.success({ sold: "Marked as sold", unlist: "Listing hidden", relist: "Listing is live again", delete: "Listing deleted", boost: "Boosted. Front-row seat secured." }[action]);
       if (action === "delete") router.back();
     },
     onError: (err) => {
@@ -211,7 +225,7 @@ export default function ProductScreen() {
               onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
               renderItem={({ item, index: i }) => (
                 <Pressable onPress={() => setViewer(i)}>
-                  <Image source={{ uri: ikCard(item.url) }} style={{ width, height: width }} contentFit="cover" transition={200} />
+                  <Image source={{ uri: ikCard(item.url) }} style={{ width, height: width }} contentFit="cover" transition={150} cachePolicy="memory-disk" />
                 </Pressable>
               )}
             />
@@ -256,7 +270,7 @@ export default function ProductScreen() {
               ) : null}
               {!rules.condition?.fixed && p.condition ? <Badge label={labelOf(CONDITIONS, p.condition)} /> : null}
               <Badge label={availability} tone={reservedByOther ? "warning" : available ? "success" : "neutral"} />
-              {p.isGirlsOnly ? <Badge label="🌸 Girls only" tone="pink" /> : null}
+              {p.isGirlsOnly ? <Badge label="Girls only" icon="flower-outline" tone="pink" /> : null}
               {isBoostLive(p) ? <Badge label="Boosted" tone="gold" icon="rocket" /> : null}
             </View>
             <Text style={{ color: c.text, fontSize: 22, lineHeight: 28, letterSpacing: -0.4, ...font.bold }}>{p.title}</Text>
@@ -319,9 +333,17 @@ export default function ProductScreen() {
           ) : null}
 
           <Section title="About this item" icon="document-text-outline">
-            <Text selectable style={{ color: p.description ? c.text : c.textMuted, fontSize: 14.5, lineHeight: 22, ...font.regular }}>
-              {p.description || "The seller hasn't added a description. Ask them in chat."}
-            </Text>
+            {partial ? (
+              <View style={{ gap: 8 }}>
+                <Skeleton height={12} />
+                <Skeleton height={12} width="85%" />
+                <Skeleton height={12} width="60%" />
+              </View>
+            ) : (
+              <Text selectable style={{ color: p.description ? c.text : c.textMuted, fontSize: 14.5, lineHeight: 22, ...font.regular }}>
+                {p.description || "The seller hasn't added a description. Ask them in chat."}
+              </Text>
+            )}
           </Section>
 
           <Section title="Specifications" icon="list-checks">
@@ -401,7 +423,7 @@ export default function ProductScreen() {
                 title={!available ? "No longer available" : girlsBlocked ? "Girls Corner only" : reservedByOther ? "Chat with seller" : "Chat Now"}
                 disabled={!available || Boolean(girlsBlocked)}
                 loading={startChat.isPending}
-                onPress={() => (loggedIn ? startChat.mutate() : router.push("/login"))}
+                onPress={() => (loggedIn ? startChat.mutate() : promptLogin("Log in to chat with the seller", `/product/${id}`))}
               />
             </View>
           </>

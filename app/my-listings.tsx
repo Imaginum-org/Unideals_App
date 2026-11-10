@@ -42,7 +42,7 @@ function ListingCard({ p, boostsLeft }: { p: Product; boostsLeft: number | null 
       a === "boost" ? productApi.boost(p._id) : a === "sold" ? productApi.markSold(p._id) : a === "unlist" ? productApi.unlist(p._id) : a === "relist" ? productApi.relist(p._id) : productApi.remove(p._id),
     onSuccess: (_r, a) => {
       refresh();
-      toast.success({ boost: "Boosted 🚀 Your listing is at the top.", sold: "Marked as sold", unlist: "Listing hidden", relist: "Listing is live again", delete: "Listing deleted" }[a]);
+      toast.success({ boost: "Boosted. Your listing has a front-row seat now.", sold: "Marked as sold", unlist: "Listing hidden", relist: "Listing is live again", delete: "Listing deleted" }[a]);
     },
     onError: (err, a) => {
       if (a === "boost" && (errorCode(err) === "BOOST_LIMIT" || /quota|limit/i.test(errorMessage(err, "")))) {

@@ -1,7 +1,8 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, FlatList, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { assistantApi, type AssistantProduct, type AssistantReply } from "@/api/assistant";
 import { errorMessage } from "@/api/client";
@@ -19,7 +20,7 @@ type Msg = { id: string; sender: "user" | "assistant"; text: string; isError?: b
 const WELCOME: Msg = {
   id: "welcome",
   sender: "assistant",
-  text: "Hey there! 👋 I can instantly find campus deals, benchmark fair prices for your pre-owned items, draft counter-offers, and verify peer safety.",
+  text: "Hey! I can find campus deals, tell you if a price is fair, draft counter-offers and flag sketchy listings. What are we hunting today?",
   suggestions: QUICK,
 };
 
@@ -89,7 +90,7 @@ function Cards({ m }: { m: Msg }) {
           {m.draft.title ? <Text style={{ color: c.text, fontSize: 15, ...font.bold }}>{m.draft.title}</Text> : null}
           {m.draft.categoryLabel ? <Text style={{ color: c.accentText, fontSize: 12, marginTop: 2, ...font.semibold }}>{m.draft.categoryLabel}</Text> : null}
           {m.draft.description ? <Text style={{ color: c.textMuted, fontSize: 13, lineHeight: 19, marginTop: 6, ...font.regular }}>{m.draft.description}</Text> : null}
-          {m.draft.pricingAdvice ? <Text style={{ color: c.text, fontSize: 13, marginTop: 6, ...font.medium }}>💡 {m.draft.pricingAdvice}</Text> : null}
+          {m.draft.pricingAdvice ? <Text style={{ color: c.text, fontSize: 13, marginTop: 6, ...font.medium }}>Tip: {m.draft.pricingAdvice}</Text> : null}
           <Pressable onPress={() => router.push("/sell")} style={[styles.inlineCta, { backgroundColor: c.accent }]}>
             <Text style={{ color: "#fff", fontSize: 13, ...font.semibold }}>Start this listing</Text>
           </Pressable>
@@ -197,7 +198,7 @@ export default function Assistant() {
           ) : undefined
         }
       />
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.bg }} behavior="padding">
         <FlatList
           ref={list}
           data={messages}

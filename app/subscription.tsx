@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useState } from "react";
 import { LayoutAnimation, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -8,6 +7,7 @@ import { errorMessage } from "@/api/client";
 import { paymentApi } from "@/api/payments";
 import { usePurchase } from "@/components/payments/usePurchase";
 import { EarlyAccessCard } from "@/components/labs/Labs";
+import { PlanCard } from "@/components/payments/PlanCard";
 import { Badge, Button, Card, EmptyState, ErrorState, Skeleton, TopBar } from "@/components/ui";
 import { Icon } from "@/components/ui/Icon";
 import { toast } from "@/lib/toast";
@@ -107,43 +107,34 @@ export default function Subscription() {
         {loggedIn && billing.isError ? <ErrorState message={errorMessage(billing.error)} onRetry={() => billing.refetch()} /> : null}
 
         {b ? (
-          <LinearGradient colors={current === "pro_plus" ? ["#1F1300", "#3D2A00"] : current === "pro" ? ["#3838EC", "#2829D8"] : c.dark ? ["#1A1D20", "#1A1D20"] : ["#FFFFFF", "#FFFFFF"]} style={[styles.current, { borderColor: current === "base_user" ? c.border : "transparent" }]}>
-            {(() => {
-              const fg = current === "base_user" ? c.text : "#fff";
-              const muted = current === "base_user" ? c.textMuted : "rgba(255,255,255,0.75)";
-              return (
-                <>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={{ color: muted, fontSize: 12, letterSpacing: 0.6, ...font.semibold }}>CURRENT PLAN</Text>
-                    <Badge label={(b.status || "active") === "active" ? "Active" : String(b.status)} tone="success" />
+          <>
+            <PlanCard
+              tier={current}
+              holder={user?.name}
+              number={`•••• •••• •••• ${String(user?._id || "0000").slice(-4).toUpperCase()}`}
+              validTill={renewal}
+              since={shortDate(b.startedAt) || "—"}
+              status={(b.status || "active") === "active" ? "Active" : String(b.status)}
+            />
+            <Card>
+              <Text style={{ color: c.text, fontSize: 15, marginBottom: 12, ...font.semibold }}>Your usage</Text>
+              <View style={{ gap: 12 }}>
+                {usage.map((u) => (
+                  <View key={u.label} style={{ gap: 6 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text style={{ color: c.text, fontSize: 13, ...font.medium }}>{u.label}</Text>
+                      <Text style={{ color: c.textMuted, fontSize: 13, fontVariant: ["tabular-nums"], ...font.semibold }}>
+                        {u.used} / {u.total == null ? "∞" : u.total}
+                      </Text>
+                    </View>
+                    <View style={{ height: 6, borderRadius: 3, backgroundColor: c.surfaceAlt }}>
+                      <View style={{ height: 6, borderRadius: 3, backgroundColor: c.accent, width: u.total ? `${Math.min(100, (u.used / Math.max(1, u.total)) * 100)}%` : "6%" }} />
+                    </View>
                   </View>
-                  <Text style={{ color: current === "pro_plus" ? "#FCD34D" : fg, fontSize: 28, letterSpacing: -0.6, marginTop: 4, ...font.bold }}>
-                    {current === "pro_plus" ? "👑 " : ""}
-                    {NAME[current] || "Free"}
-                  </Text>
-                  <View style={{ flexDirection: "row", gap: 18, marginTop: 6 }}>
-                    <Text style={{ color: muted, fontSize: 12.5, ...font.medium }}>Valid till · <Text style={{ color: fg }}>{renewal}</Text></Text>
-                    <Text style={{ color: muted, fontSize: 12.5, ...font.medium }}>Since · <Text style={{ color: fg }}>{shortDate(b.startedAt) || "—"}</Text></Text>
-                  </View>
-                  <View style={{ gap: 10, marginTop: 16 }}>
-                    {usage.map((u) => (
-                      <View key={u.label} style={{ gap: 5 }}>
-                        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                          <Text style={{ color: fg, fontSize: 13, ...font.medium }}>{u.label}</Text>
-                          <Text style={{ color: muted, fontSize: 13, fontVariant: ["tabular-nums"], ...font.semibold }}>
-                            {u.used} / {u.total == null ? "∞" : u.total}
-                          </Text>
-                        </View>
-                        <View style={{ height: 6, borderRadius: 3, backgroundColor: current === "base_user" ? c.surfaceAlt : "rgba(255,255,255,0.2)" }}>
-                          <View style={{ height: 6, borderRadius: 3, backgroundColor: current === "base_user" ? c.accent : "#fff", width: u.total ? `${Math.min(100, (u.used / Math.max(1, u.total)) * 100)}%` : "6%" }} />
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                </>
-              );
-            })()}
-          </LinearGradient>
+                ))}
+              </View>
+            </Card>
+          </>
         ) : null}
 
         {showPressure && next ? (
@@ -170,7 +161,7 @@ export default function Subscription() {
 
         {girlsOffer ? (
           <Card style={{ backgroundColor: c.dark ? "rgba(236,72,153,0.12)" : "#FDF2F8", borderColor: c.dark ? "#831843" : "#FBCFE8" }}>
-            <Text style={{ color: "#DB2777", fontSize: 14, ...font.semibold }}>🌸 Girls Founder offer unlocked, bestie: special prices applied below.</Text>
+            <Text style={{ color: "#DB2777", fontSize: 14, ...font.semibold }}>Girls Founder offer unlocked: special prices applied below.</Text>
           </Card>
         ) : null}
 
@@ -295,7 +286,6 @@ export default function Subscription() {
 }
 
 const styles = StyleSheet.create({
-  current: { borderRadius: 18, padding: 18, borderWidth: 1 },
   unlock: { width: "47.8%", borderRadius: 12, padding: 12, gap: 2 },
   tick: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   compareBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 46, borderRadius: 12, borderWidth: 1 },

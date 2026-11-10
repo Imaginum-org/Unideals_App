@@ -25,7 +25,7 @@ export default function Wishlist() {
           renderItem={({ item }) => <ProductCard product={item} width={cardWidth} />}
           refreshControl={<RefreshControl refreshing={false} onRefresh={() => void refetch()} tintColor={c.accent} />}
           ListEmptyComponent={
-            <EmptyState icon="heart-outline" title="Nothing saved yet" message="Tap the heart on any listing to keep it here." action="Explore listings" onAction={() => router.push("/explore")} />
+            <EmptyState icon="heart-outline" title="Nothing saved yet" message="Tap the heart on anything you’re eyeing. Shortlist it before your batchmates do." action="Explore listings" onAction={() => router.push("/explore")} />
           }
         />
       )}

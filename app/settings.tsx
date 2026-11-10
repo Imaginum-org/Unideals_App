@@ -217,7 +217,7 @@ export default function Settings() {
             <Card>
               <T variant="h3">Gender</T>
               <T variant="small" muted style={{ marginTop: 2, marginBottom: 10 }}>
-                Used for Girls Corner 🌸, a private space for verified female students.
+                Used for Girls Corner, a private space for verified female students.
               </T>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {(["female", "male"] as const).map((g) => (
@@ -264,7 +264,7 @@ export default function Settings() {
               <Chip key={t} label={t === "system" ? "System" : t === "light" ? "Light" : "Dark"} selected={theme === t} onPress={() => setTheme(t)} />
             ))}
           </View>
-          {canSeeGirls(user) ? <SwitchRow label="🌸 Girls Mode" description="Pink theme + Girls Corner feed." value={girlsMode} onChange={setGirlsMode} /> : null}
+          {canSeeGirls(user) ? <SwitchRow label="Girls Mode" description="Pink theme + Girls Corner feed." value={girlsMode} onChange={setGirlsMode} /> : null}
         </Card>
 
         {loggedIn && user ? (

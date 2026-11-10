@@ -1,8 +1,8 @@
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { Pressable, RefreshControl, SectionList, Text, View } from "react-native";
 import { notificationApi } from "@/api/chat";
 import { errorMessage } from "@/api/client";
 import { EmptyState, ErrorState, IconButton, Loader, Screen, T, TopBar } from "@/components/ui";
@@ -35,6 +35,33 @@ const toAppRoute = (path?: string): string | null => {
     if (m) return to(m);
   }
   return null;
+};
+
+// Icon by notification kind (server type, falling back to title words).
+const iconFor = (type?: string, title = ""): IconName => {
+  const t = `${type || ""} ${title}`.toLowerCase();
+  if (/offer|deal|price/.test(t)) return "handshake";
+  if (/message|chat|reply/.test(t)) return "chatbubbles-outline";
+  if (/payment|paid|plan|subscription|boost/.test(t)) return "wallet-outline";
+  if (/pickup|meet/.test(t)) return "location-outline";
+  if (/badge|level|xp|achievement/.test(t)) return "trophy-outline";
+  if (/wishlist|saved|price drop/.test(t)) return "heart-outline";
+  if (/sold|listing|listed/.test(t)) return "pricetag-outline";
+  return "notifications-outline";
+};
+
+const groupByDay = (items: AppNotification[]) => {
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startWeek = startToday - 6 * 864e5;
+  const groups: Record<string, AppNotification[]> = { Today: [], "This week": [], Earlier: [] };
+  for (const n of items) {
+    const t = n.createdAt ? new Date(n.createdAt).getTime() : Date.now();
+    (t >= startToday ? groups.Today : t >= startWeek ? groups["This week"] : groups.Earlier).push(n);
+  }
+  return Object.entries(groups)
+    .filter(([, data]) => data.length)
+    .map(([title, data]) => ({ title, data }));
 };
 
 export default function Notifications() {
@@ -82,19 +109,27 @@ export default function Notifications() {
       ) : isError ? (
         <ErrorState message={errorMessage(error)} onRetry={() => refetch()} />
       ) : (
-        <FlatList
-          data={items}
+        <SectionList
+          sections={groupByDay(items)}
           keyExtractor={(n) => n.id}
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={{ paddingBottom: 32 }}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} tintColor={c.accent} />}
+          renderSectionHeader={({ section }) => (
+            <Text style={{ color: c.textFaint, fontSize: 11.5, letterSpacing: 0.8, textTransform: "uppercase", paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6, fontFamily: "Figtree_600SemiBold" }}>
+              {section.title}
+            </Text>
+          )}
           renderItem={({ item: n }) => (
             <Pressable onPress={() => open(n)} style={({ pressed }) => [{ flexDirection: "row", gap: 12, padding: 14, paddingRight: 4, backgroundColor: pressed ? c.surface : n.unread ? c.accentSoft : "transparent" }]}>
               {n.imageUrl ? (
                 <Image source={{ uri: n.imageUrl }} style={{ width: 44, height: 44, borderRadius: radius.md }} contentFit="cover" />
               ) : (
-                <View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
-                  <Icon name="notifications-outline" size={20} color={c.accentText} />
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: n.unread ? c.card : c.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
+                  <Icon name={iconFor(n.type, n.title)} size={19} color={c.accentText} />
                 </View>
               )}
+              {n.unread ? <View style={{ position: "absolute", left: 6, top: 30, width: 6, height: 6, borderRadius: 3, backgroundColor: c.accent }} /> : null}
               <View style={{ flex: 1, gap: 2 }}>
                 <T variant="h3" style={{ fontSize: 15 }}>
                   {n.title}
@@ -112,7 +147,7 @@ export default function Notifications() {
               <IconButton icon="close" size={18} color={c.textFaint} onPress={() => dismiss(n)} accessibilityLabel="Dismiss" />
             </Pressable>
           )}
-          ListEmptyComponent={<EmptyState icon="notifications-off-outline" title="You're all caught up" message="Offers, deal updates and campus news show up here." />}
+          ListEmptyComponent={<EmptyState icon="notifications-off-outline" title="You're all caught up" message="Quieter than the library the night before a fest. Offers and deal updates land here." />}
         />
       )}
     </Screen>

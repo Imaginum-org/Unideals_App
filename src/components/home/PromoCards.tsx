@@ -25,10 +25,10 @@ function Cta({ label, onPress, light }: { label: string; onPress: () => void; li
   );
 }
 
-export function PromoCards() {
+export function PromoCards({ offset = 34 }: { offset?: number }) {
   const { c } = useTheme();
   return (
-    <View style={{ paddingHorizontal: 16, gap: 12, marginTop: 34 }}>
+    <View style={{ paddingHorizontal: 16, gap: 12, marginTop: offset }}>
       <View style={[styles.card, { backgroundColor: c.dark ? "#1A1D20" : "#FFF7ED", borderColor: c.dark ? "#262626" : "#FED7AA" }]}>
         <Text style={[styles.title, { color: c.text }]}>Your selling journey starts here</Text>
         <Text style={[styles.sub, { color: c.textMuted }]}>List what you don't use anymore and score the best deal for it</Text>
