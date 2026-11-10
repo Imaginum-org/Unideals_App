@@ -5,7 +5,10 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "preview": {
       "distribution": "internal"
@@ -22,7 +25,8 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://api.unideals.in",
         "EXPO_PUBLIC_WEB_URL": "https://app.unideals.in",
         "EXPO_PUBLIC_IMAGEKIT_PUBLIC_KEY": "public_6CzfnTsUT15e7A4IS1uJJkIdjqA=",
-        "EXPO_PUBLIC_DEFAULT_CAMPUS_SLUG": "vit-vellore"
+        "EXPO_PUBLIC_DEFAULT_CAMPUS_SLUG": "vit-vellore",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "18478226765-dcvcdt3ebbbst4lepvg52r0k7f1kdgn1.apps.googleusercontent.com"
       }
     }
   },

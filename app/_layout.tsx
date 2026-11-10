@@ -11,7 +11,7 @@ import { DarkTheme, DefaultTheme, SplashScreen, Stack, ThemeProvider, router, us
 import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -24,6 +24,7 @@ import { useRealtimeBridge } from "@/hooks/useRealtime";
 import { ThemeRevealHost } from "@/components/theme/ThemeReveal";
 import { PROTECTED_ROOTS } from "@/lib/authPrompt";
 import { queryClient } from "@/lib/queryClient";
+import { userApi } from "@/api/user";
 import { toast } from "@/lib/toast";
 import { canSeeGirls, useAuthStore } from "@/store/auth";
 import { usePrefsStore } from "@/store/prefs";
@@ -36,7 +37,9 @@ function Guards() {
   const user = useAuthStore((s) => s.user);
   const girlsMode = usePrefsStore((s) => s.girlsMode);
   const setGirlsMode = usePrefsStore((s) => s.setGirlsMode);
-  const { needsGate } = useCampus();
+  const { needsGate, campuses, directoryLoading } = useCampus();
+  const updateUser = useAuthStore((s) => s.updateUser);
+  const autoAssigning = useRef(false);
   const segments = useSegments();
 
   useRealtimeBridge();
@@ -52,11 +55,29 @@ function Guards() {
 
   // Logged-in users without a campus must pick one before using the app
   // (same onboarding gate as the website's CampusGate).
+  // With a single live campus there is nothing to choose: assign it quietly
+  // and keep the user on Home.
   useEffect(() => {
-    if (status !== "authed" || !needsGate) return;
+    if (status !== "authed" || !needsGate || directoryLoading) return;
+    const live = campuses.filter((x) => x.is_active !== false);
+    if (live.length === 1) {
+      if (autoAssigning.current) return;
+      autoAssigning.current = true;
+      userApi
+        .updateProfile({ campus_slug: live[0].slug })
+        .then((r) => {
+          if (r.user) updateUser(r.user);
+          queryClient.invalidateQueries();
+        })
+        .catch(() => router.replace({ pathname: "/campus", params: { gate: "1" } }))
+        .finally(() => {
+          autoAssigning.current = false;
+        });
+      return;
+    }
     if (segments[0] === "campus") return;
     router.replace({ pathname: "/campus", params: { gate: "1" } });
-  }, [status, needsGate, segments]);
+  }, [status, needsGate, segments, campuses, directoryLoading, updateUser]);
 
   // Girls Mode is meaningless (and server-blocked) for ineligible viewers.
   useEffect(() => {

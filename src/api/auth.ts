@@ -10,6 +10,7 @@ export const authApi = {
     api.post<{ data: SessionPayload }>(`${A}/login`, { email, password }),
   register: (data: { name: string; email: string; password: string; gender?: "female" | "male" }) =>
     api.post<{ message: string }>(`${A}/register`, data),
+  googleIdToken: (credential: string) => api.post<{ data: SessionPayload }>(`${A}/google/one-tap`, { credential }),
   googleExchange: (code: string) => api.post<{ data: SessionPayload }>(`${A}/google/exchange`, { code }),
   logout: (refreshToken?: string | null) =>
     api.post(`${A}/logoutUser`, refreshToken ? { refreshToken } : {}),
