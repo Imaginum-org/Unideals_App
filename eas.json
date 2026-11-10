@@ -1,23 +1,39 @@
 {
-  "cli": { "version": ">= 13.0.0" },
+  "cli": {
+    "version": ">= 13.0.0"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "channel": "preview"
+      "distribution": "internal"
     },
     "production": {
-      "channel": "production",
       "autoIncrement": true
+    },
+    "apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.unideals.in",
+        "EXPO_PUBLIC_WEB_URL": "https://app.unideals.in",
+        "EXPO_PUBLIC_IMAGEKIT_PUBLIC_KEY": "public_6CzfnTsUT15e7A4IS1uJJkIdjqA=",
+        "EXPO_PUBLIC_DEFAULT_CAMPUS_SLUG": "vit-vellore"
+      }
     }
   },
   "submit": {
     "production": {
-      "android": { "track": "internal" },
-      "ios": { "appleTeamId": "YOUR_APPLE_TEAM_ID" }
+      "android": {
+        "track": "internal"
+      },
+      "ios": {
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+      }
     }
   }
 }

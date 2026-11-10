@@ -1,61 +1,47 @@
-import { ExpoConfig, ConfigContext } from "expo/config";
+import type { ConfigContext, ExpoConfig } from "expo/config";
 
-// Unideals App — single Expo client for the shared backend at api.unideals.in
-// Backend source of truth: Unideals/backend (Express 5 + MongoDB + Socket.io)
-// See session-ses_eca1.md § Phase 1 + PROJECT_STRUCTURE.md for API contract.
+// Unideals mobile app — Expo client for the SAME backend as the website
+// (E:\Unideals\backend, Express + MongoDB + Socket.io on Render).
+// All runtime config comes from EXPO_PUBLIC_* env vars (see .env.sample).
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Unideals",
   slug: "unideals-app",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/images/icon.png",
   scheme: "unideals",
   userInterfaceStyle: "automatic",
-  splash: {
-    image: "./assets/images/splash.png",
-    resizeMode: "contain",
-    backgroundColor: "#ffffff"
-  },
-  assetBundlePatterns: ["**/*"],
+  // Drop 1024x1024 PNGs into ./assets and uncomment for store builds:
+  // icon: "./assets/icon.png",
   ios: {
-    supportsTablet: true,
+    supportsTablet: false,
     bundleIdentifier: "in.unideals.app",
     infoPlist: {
-      NSPhotoLibraryUsageDescription: "Unideals needs photo access to list products.",
-      NSCameraUsageDescription: "Unideals needs camera access to capture product photos."
-    }
+      NSPhotoLibraryUsageDescription: "Unideals needs photo access so you can add pictures to your listings.",
+      NSCameraUsageDescription: "Unideals needs camera access so you can photograph items you sell.",
+    },
   },
   android: {
     package: "in.unideals.app",
-    adaptiveIcon: {
-      foregroundImage: "./assets/images/adaptive-icon.png",
-      backgroundColor: "#ffffff"
-    },
-    intentFilters: [
-      {
-        action: "VIEW",
-        data: [{ scheme: "unideals" }],
-        category: ["BROWSABLE", "DEFAULT"]
-      }
-    ],
-    permissions: ["NOTIFICATIONS"]
+    // adaptiveIcon: { foregroundImage: "./assets/adaptive-icon.png", backgroundColor: "#3038FC" },
   },
   plugins: [
     "expo-router",
+    // Native splash = the same brand blue the animated intro starts on, so
+    // launch → intro → app has no white flash.
+    ["expo-splash-screen", { backgroundColor: "#3838EC", dark: { backgroundColor: "#3838EC" } }],
     "expo-secure-store",
+    "expo-web-browser",
     [
       "expo-image-picker",
-      { photosPermission: "Unideals needs photo access to list products." }
+      {
+        photosPermission: "Unideals needs photo access so you can add pictures to your listings.",
+        cameraPermission: "Unideals needs camera access so you can photograph items you sell.",
+      },
     ],
-    [
-      "expo-notifications",
-      { icon: "./assets/images/notification-icon.png", color: "#ffffff" }
-    ]
+    "@react-native-community/datetimepicker",
   ],
-  experiments: { typedRoutes: true },
   extra: {
-    router: {},
-    eas: { projectId: "YOUR_EAS_PROJECT_ID" }
-  }
+    eas: { projectId: process.env.EAS_PROJECT_ID },
+  },
 });
